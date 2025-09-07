@@ -1,6 +1,6 @@
 # Red Energy Home Assistant Integration
 
-[![Version](https://img.shields.io/badge/version-2.0.14-blue.svg)](#)
+[![Version](https://img.shields.io/badge/version-2.0.15-blue.svg)](#)
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE)
