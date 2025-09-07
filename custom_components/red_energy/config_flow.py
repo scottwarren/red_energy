@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from typing import Any, Dict, Optional
+import inspect
 from unittest.mock import AsyncMock as _AsyncMock  # Used only for test behavior detection
 
 import aiohttp
@@ -176,7 +177,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return await self.async_step_account_select()
 
-        return await self.async_show_form(
+        return await self._show_form(
             step_id=STEP_USER,
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
@@ -214,7 +215,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(DATA_SELECTED_ACCOUNTS): cv.multi_select(account_options),
         })
 
-        return await self.async_show_form(
+        return await self._show_form(
             step_id=STEP_ACCOUNT_SELECT,
             data_schema=schema,
             errors=errors,
@@ -268,13 +269,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("services", default=[SERVICE_TYPE_ELECTRICITY]): cv.multi_select(service_options),
         })
 
-        return await self.async_show_form(
+        return await self._show_form(
             step_id=STEP_SERVICE_SELECT,
             data_schema=schema,
             description_placeholders={
                 "selected_accounts": str(len(self._selected_accounts))
             }
         )
+
+    async def _show_form(self, **kwargs: Any) -> FlowResult:
+        """Show a form, awaiting if the underlying method is awaitable.
+
+        Some tests replace async_show_form with an AsyncMock (awaitable). Home Assistant's
+        implementation returns a dict (non-awaitable). This helper normalizes both cases.
+        """
+        result = self.async_show_form(**kwargs)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     @staticmethod
     @callback
