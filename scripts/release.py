@@ -23,6 +23,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = REPO_ROOT / "custom_components" / "red_energy" / "manifest.json"
+README_PATH = REPO_ROOT / "README.md"
 
 
 def run(cmd: list[str], dry_run: bool = False) -> None:
@@ -72,6 +73,33 @@ def write_manifest(manifest: dict, dry_run: bool) -> None:
     MANIFEST_PATH.write_text(text)
 
 
+def update_readme_version_badge(new_version: str, dry_run: bool) -> None:
+    """Ensure README has a version badge and update it to new_version.
+
+    Badge format inserted/updated:
+    [![Version](https://img.shields.io/badge/version-1.2.3-blue.svg)](#)
+    """
+    if not README_PATH.exists():
+        return
+    content = README_PATH.read_text()
+    badge_re = re.compile(r"\[!\[Version\]\(https://img\.shields\.io/badge/version-\d+\.\d+\.\d+-blue\.svg\)\]\(#\)")
+    new_badge = f"[![Version](https://img.shields.io/badge/version-{new_version}-blue.svg)](#)"
+    if badge_re.search(content):
+        updated = badge_re.sub(new_badge, content)
+    else:
+        # Insert after title line
+        lines = content.splitlines()
+        if lines and lines[0].startswith("# "):
+            lines.insert(2, new_badge)
+            updated = "\n".join(lines) + ("\n" if not content.endswith("\n") else "")
+        else:
+            updated = new_badge + "\n" + content
+    if dry_run:
+        print("Would update README version badge to:", new_badge)
+        return
+    README_PATH.write_text(updated)
+
+
 def bump_semver(version: str, part: str) -> str:
     if not re.match(r"^\d+\.\d+\.\d+$", version):
         print(f"Error: version '{version}' is not semver X.Y.Z")
@@ -118,9 +146,10 @@ def main() -> int:
     # Update manifest
     manifest["version"] = new_version
     write_manifest(manifest, args.dry_run)
+    update_readme_version_badge(new_version, args.dry_run)
 
     # Commit and tag
-    run(["git", "add", str(MANIFEST_PATH.relative_to(REPO_ROOT))], dry_run=args.dry_run)
+    run(["git", "add", str(MANIFEST_PATH.relative_to(REPO_ROOT)), str(README_PATH.relative_to(REPO_ROOT))], dry_run=args.dry_run)
     run(["git", "commit", "-m", f"chore(release): {tag}"], dry_run=args.dry_run)
     run(["git", "tag", "-a", tag, "-m", f"Release {tag}"], dry_run=args.dry_run)
     run(["git", "push", args.remote, current_branch], dry_run=args.dry_run)
