@@ -122,7 +122,7 @@ class RedEnergyDataCoordinator(DataUpdateCoordinator):
                         )
 
                         # Validate usage data
-                        validated_usage = validate_usage_data(raw_usage)
+                        validated_usage = validate_usage_data(raw_usage, consumer_number)
 
                         property_usage[service_type] = {
                             "consumer_number": consumer_number,

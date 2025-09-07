@@ -95,7 +95,7 @@ def validate_single_property(data: Dict[str, Any], *, index: int = 0, client_id:
         # Map utility codes: 'E' = electricity, 'G' = gas
         utility = consumer.get("utility", "")
         service_type = "electricity" if utility == "E" else "gas" if utility == "G" else utility.lower()
-        
+
         services.append({
             "type": service_type,
             "consumer_number": str(consumer.get("consumerNumber", "")),
@@ -129,16 +129,13 @@ def validate_address(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         data = {}
 
-    # TODO: Confirm address field mapping
-    # API actual: nested structure with street, suburb, state, postcode, displayAddresses.shortForm
-    # Integration expects: street, city, state, postcode
-
+    # Map API address fields to expected format
     return {
         "street": data.get("street", "").strip(),
         "city": data.get("suburb", data.get("city", "")).strip(),  # API uses 'suburb' not 'city'
         "state": data.get("state", "").strip(),
         "postcode": data.get("postcode", "").strip(),
-        "display_address": data.get("displayAddress", "").strip(),  # Keep original for reference
+        "display_address": data.get("displayAddress", "").strip(),
         "short_form": data.get("displayAddresses", {}).get("shortForm", "").strip(),
     }
 
@@ -181,13 +178,8 @@ def validate_single_service(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def validate_usage_data(data: Any) -> Dict[str, Any]:
+def validate_usage_data(data: Any, consumer_number: str = "") -> Dict[str, Any]:
     """Validate usage data from Red Energy API."""
-    # TODO: Confirm usage data structure
-    # API actual: Returns array of usage entries directly, not wrapped in dict
-    # Each entry has: usageDate, halfHours array with consumptionKwh, consumptionDollar, etc.
-    # Integration expects: dict with consumer_number, usage_data array, totals
-
     if not isinstance(data, list):
         raise DataValidationError("Usage data must be a list (API returns array directly)")
 
@@ -199,10 +191,6 @@ def validate_usage_data(data: Any) -> Dict[str, Any]:
 
     for entry in data:
         try:
-            # TODO: Confirm usage entry structure
-            # API actual: {usageDate: '2025-08-09', halfHours: [...]}
-            # Integration expects: {date: '2025-08-09', usage: float, cost: float, unit: 'kWh'}
-
             usage_date = entry.get("usageDate")
             if not usage_date:
                 continue
@@ -219,19 +207,15 @@ def validate_usage_data(data: Any) -> Dict[str, Any]:
             daily_cost = 0.0
 
             for interval in half_hours:
-                # TODO: Confirm interval structure
-                # API actual: {consumptionKwh: 0.241, consumptionDollar: 0.07, consumptionDollarIncGst: 0.0742}
-                # Integration expects: usage and cost fields
-
+                # Use GST inclusive pricing for cost
                 daily_usage += float(interval.get("consumptionKwh", 0))
-                daily_cost += float(interval.get("consumptionDollarIncGst", 0))  # Use GST inclusive
+                daily_cost += float(interval.get("consumptionDollarIncGst", 0))
 
             validated_entries.append({
                 "date": usage_date,
                 "usage": round(daily_usage, 3),
                 "cost": round(daily_cost, 2),
                 "unit": "kWh",
-                "intervals": len(half_hours),  # Keep for debugging
             })
 
             total_usage += daily_usage
@@ -242,7 +226,7 @@ def validate_usage_data(data: Any) -> Dict[str, Any]:
             continue
 
     return {
-        "consumer_number": "unknown",  # TODO: This should be passed in
+        "consumer_number": consumer_number,
         "from_date": from_date or "",
         "to_date": to_date or "",
         "usage_data": validated_entries,
