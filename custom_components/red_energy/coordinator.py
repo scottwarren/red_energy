@@ -154,7 +154,18 @@ class RedEnergyDataCoordinator(DataUpdateCoordinator):
                     }
 
             if not usage_data:
-                raise UpdateFailed("No usage data retrieved for any configured services")
+                _LOGGER.warning(
+                    "No usage data retrieved: %d properties, selected_accounts=%s, services=%s."
+                    " This can occur when the backend returns no services/consumer numbers.",
+                    len(self._properties), self.selected_accounts, self.services
+                )
+                # Return base dataset so UI can still show customer/properties; sensors may be skipped
+                return {
+                    "customer": self._customer_data,
+                    "properties": self._properties,
+                    "usage_data": {},
+                    "last_update": datetime.now().isoformat(),
+                }
 
             return {
                 "customer": self._customer_data,

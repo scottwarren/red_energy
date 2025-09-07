@@ -24,7 +24,9 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
             _LOGGER.warning("Missing required customer field: %s", field)
             # Provide default values for missing fields
             if field == "id":
-                data[field] = "unknown"
+                # Prefer email as a stable unique identifier if provided
+                fallback_email = data.get("email")
+                data[field] = (fallback_email or "unknown").strip().lower() if isinstance(fallback_email, str) else "unknown"
             elif field == "name":
                 data[field] = "Red Energy Customer"
             elif field == "email":
