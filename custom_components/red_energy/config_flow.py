@@ -176,7 +176,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return await self.async_step_account_select()
 
-        return self.async_show_form(
+        return await self.async_show_form(
             step_id=STEP_USER,
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
@@ -214,7 +214,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(DATA_SELECTED_ACCOUNTS): cv.multi_select(account_options),
         })
 
-        return self.async_show_form(
+        return await self.async_show_form(
             step_id=STEP_ACCOUNT_SELECT,
             data_schema=schema,
             errors=errors,
@@ -268,7 +268,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required("services", default=[SERVICE_TYPE_ELECTRICITY]): cv.multi_select(service_options),
         })
 
-        return self.async_show_form(
+        return await self.async_show_form(
             step_id=STEP_SERVICE_SELECT,
             data_schema=schema,
             description_placeholders={
