@@ -43,17 +43,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up Red Energy sensors based on a config entry."""
     _LOGGER.debug("Setting up Red Energy sensors for config entry %s", config_entry.entry_id)
-    
+
     entry_data = hass.data[DOMAIN][config_entry.entry_id]
     coordinator: RedEnergyDataCoordinator = entry_data["coordinator"]
     selected_accounts = entry_data["selected_accounts"]
     services = entry_data["services"]
-    
+
     # Check if advanced sensors are enabled
     advanced_sensors_enabled = config_entry.options.get(CONF_ENABLE_ADVANCED_SENSORS, False)
-    
+
     entities = []
-    
+
     # Create sensors for each selected account and service
     for account_id in selected_accounts:
         for service_type in services:
@@ -64,7 +64,7 @@ async def async_setup_entry(
                 RedEnergyCostPerUnitSensor(coordinator, config_entry, account_id, service_type),
                 RedEnergyTotalUsageSensor(coordinator, config_entry, account_id, service_type),
             ])
-            
+
             # Advanced sensors (optional)
             if advanced_sensors_enabled:
                 entities.extend([
@@ -73,8 +73,8 @@ async def async_setup_entry(
                     RedEnergyPeakUsageSensor(coordinator, config_entry, account_id, service_type),
                     RedEnergyEfficiencySensor(coordinator, config_entry, account_id, service_type),
                 ])
-    
-    _LOGGER.debug("Created %d sensors (%d advanced) for Red Energy integration", 
+
+    _LOGGER.debug("Created %d sensors (%d advanced) for Red Energy integration",
                  len(entities), len(entities) - (len(selected_accounts) * len(services) * 4))
     async_add_entities(entities)
 
@@ -92,26 +92,26 @@ class RedEnergyBaseSensor(CoordinatorEntity, SensorEntity):
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        
+
         self._config_entry = config_entry
         self._property_id = property_id
         self._service_type = service_type
         self._sensor_type = sensor_type
-        
+
         # Get property info for naming
         property_data = None
         if coordinator.data and "usage_data" in coordinator.data:
             property_data = coordinator.data["usage_data"].get(property_id, {}).get("property")
-        
+
         property_name = "Unknown Property"
         if property_data:
             property_name = property_data.get("name", f"Property {property_id}")
-            
+
         service_display = service_type.title()
-        
+
         self._attr_name = f"{property_name} {service_display} {sensor_type.title()}"
         self._attr_unique_id = f"{DOMAIN}_{config_entry.entry_id}_{property_id}_{service_type}_{sensor_type}"
-        
+
         # Set device info for grouping
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{config_entry.entry_id}_{property_id}")},
@@ -143,7 +143,7 @@ class RedEnergyUsageSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the usage sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, "daily_usage")
-        
+
         # Set appropriate device class and unit
         if service_type == SERVICE_TYPE_ELECTRICITY:
             self._attr_device_class = SensorDeviceClass.ENERGY
@@ -165,7 +165,7 @@ class RedEnergyUsageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data:
             return None
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "last_updated": service_data.get("last_updated"),
@@ -185,7 +185,7 @@ class RedEnergyCostSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the cost sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, "total_cost")
-        
+
         self._attr_device_class = SensorDeviceClass.MONETARY
         self._attr_native_unit_of_measurement = "AUD"  # Total cost over period
         self._attr_state_class = SensorStateClass.TOTAL
@@ -201,7 +201,7 @@ class RedEnergyCostSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data:
             return None
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "last_updated": service_data.get("last_updated"),
@@ -222,7 +222,7 @@ class RedEnergyCostPerUnitSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the cost per unit sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, "cost_per_unit")
-        
+
         self._attr_device_class = SensorDeviceClass.MONETARY
         # Set appropriate cost per unit based on service type
         if service_type == SERVICE_TYPE_ELECTRICITY:
@@ -238,10 +238,10 @@ class RedEnergyCostPerUnitSensor(RedEnergyBaseSensor):
         """Return the cost per unit."""
         total_cost = self.coordinator.get_total_cost(self._property_id, self._service_type)
         total_usage = self.coordinator.get_total_usage(self._property_id, self._service_type)
-        
+
         if total_cost is None or total_usage is None or total_usage == 0:
             return None
-        
+
         return round(total_cost / total_usage, 4)
 
     @property
@@ -250,7 +250,7 @@ class RedEnergyCostPerUnitSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data:
             return None
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "last_updated": service_data.get("last_updated"),
@@ -273,7 +273,7 @@ class RedEnergyTotalUsageSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the total usage sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, "total_usage")
-        
+
         # Set appropriate device class and unit
         if service_type == SERVICE_TYPE_ELECTRICITY:
             self._attr_device_class = SensorDeviceClass.ENERGY
@@ -281,7 +281,7 @@ class RedEnergyTotalUsageSensor(RedEnergyBaseSensor):
         elif service_type == SERVICE_TYPE_GAS:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = "MJ"  # Megajoules
-            
+
         self._attr_state_class = SensorStateClass.TOTAL
 
     @property
@@ -295,10 +295,10 @@ class RedEnergyTotalUsageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data:
             return None
-        
+
         usage_data = service_data.get("usage_data", {})
         daily_data = usage_data.get("usage_data", [])
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "last_updated": service_data.get("last_updated"),
@@ -322,7 +322,7 @@ class RedEnergyDailyAverageSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the daily average sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, SENSOR_TYPE_DAILY_AVERAGE)
-        
+
         # Set appropriate device class and unit
         if service_type == SERVICE_TYPE_ELECTRICITY:
             self._attr_device_class = SensorDeviceClass.ENERGY
@@ -330,7 +330,7 @@ class RedEnergyDailyAverageSensor(RedEnergyBaseSensor):
         elif service_type == SERVICE_TYPE_GAS:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = "MJ"
-            
+
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
@@ -339,11 +339,11 @@ class RedEnergyDailyAverageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data or "usage_data" not in service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         if not usage_data:
             return None
-        
+
         # Calculate average daily usage
         total_usage = sum(entry.get("usage", 0) for entry in usage_data)
         return round(total_usage / len(usage_data), 2) if usage_data else 0
@@ -354,7 +354,7 @@ class RedEnergyDailyAverageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         return {
             "consumer_number": service_data.get("consumer_number"),
@@ -375,14 +375,14 @@ class RedEnergyMonthlyAverageSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the monthly average sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, SENSOR_TYPE_MONTHLY_AVERAGE)
-        
+
         if service_type == SERVICE_TYPE_ELECTRICITY:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         elif service_type == SERVICE_TYPE_GAS:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = "MJ"
-            
+
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
@@ -391,7 +391,7 @@ class RedEnergyMonthlyAverageSensor(RedEnergyBaseSensor):
         total_usage = self.coordinator.get_total_usage(self._property_id, self._service_type)
         if total_usage is None:
             return None
-        
+
         # Project 30-day usage to monthly (30.44 days average)
         return round(total_usage * (30.44 / 30), 2)
 
@@ -408,14 +408,14 @@ class RedEnergyPeakUsageSensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the peak usage sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, SENSOR_TYPE_PEAK_USAGE)
-        
+
         if service_type == SERVICE_TYPE_ELECTRICITY:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
         elif service_type == SERVICE_TYPE_GAS:
             self._attr_device_class = SensorDeviceClass.ENERGY
             self._attr_native_unit_of_measurement = "MJ"
-            
+
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
@@ -424,11 +424,11 @@ class RedEnergyPeakUsageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data or "usage_data" not in service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         if not usage_data:
             return None
-        
+
         # Find peak daily usage
         usage_values = [entry.get("usage", 0) for entry in usage_data]
         return max(usage_values) if usage_values else 0
@@ -439,14 +439,14 @@ class RedEnergyPeakUsageSensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data or "usage_data" not in service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         if not usage_data:
             return None
-        
+
         # Find peak date
         peak_entry = max(usage_data, key=lambda x: x.get("usage", 0))
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "peak_date": peak_entry.get("date"),
@@ -467,7 +467,7 @@ class RedEnergyEfficiencySensor(RedEnergyBaseSensor):
     ) -> None:
         """Initialize the efficiency sensor."""
         super().__init__(coordinator, config_entry, property_id, service_type, SENSOR_TYPE_EFFICIENCY)
-        
+
         self._attr_native_unit_of_measurement = "%"
         self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_icon = "mdi:leaf"
@@ -478,26 +478,26 @@ class RedEnergyEfficiencySensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data or "usage_data" not in service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         if len(usage_data) < 7:  # Need at least a week of data
             return None
-        
+
         # Calculate efficiency based on usage consistency and trends
         usage_values = [entry.get("usage", 0) for entry in usage_data]
-        
+
         # Calculate coefficient of variation (lower is more efficient/consistent)
         if not usage_values or len(usage_values) < 2:
             return None
-        
+
         mean_usage = sum(usage_values) / len(usage_values)
         if mean_usage == 0:
             return 100  # Perfect efficiency if no usage
-        
+
         variance = sum((x - mean_usage) ** 2 for x in usage_values) / len(usage_values)
         std_dev = variance ** 0.5
         cv = std_dev / mean_usage
-        
+
         # Convert to efficiency score (0-100%, where lower CV = higher efficiency)
         efficiency = max(0, min(100, 100 - (cv * 100)))
         return round(efficiency, 1)
@@ -508,18 +508,18 @@ class RedEnergyEfficiencySensor(RedEnergyBaseSensor):
         service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
         if not service_data or "usage_data" not in service_data:
             return None
-        
+
         usage_data = service_data["usage_data"].get("usage_data", [])
         if not usage_data:
             return None
-        
+
         usage_values = [entry.get("usage", 0) for entry in usage_data]
         mean_usage = sum(usage_values) / len(usage_values) if usage_values else 0
-        
+
         return {
             "consumer_number": service_data.get("consumer_number"),
             "mean_daily_usage": round(mean_usage, 2),
-            "usage_variation": "Low" if self.native_value and self.native_value > 80 else 
+            "usage_variation": "Low" if self.native_value and self.native_value > 80 else
                              "Medium" if self.native_value and self.native_value > 60 else "High",
             "calculation_days": len(usage_data),
             "service_type": self._service_type,
