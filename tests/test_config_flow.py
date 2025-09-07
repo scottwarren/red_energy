@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -216,7 +216,7 @@ async def test_service_select_schema_validation():
     flow._customer_data = MOCK_CUSTOMER_DATA
     flow._accounts = MOCK_PROPERTIES
     flow._selected_account = MOCK_PROPERTIES[0]
-    flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
+    flow.async_create_entry = Mock(return_value={"type": "create_entry"})
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = AsyncMock()
 
@@ -225,12 +225,12 @@ async def test_service_select_schema_validation():
     assert result["type"] == "create_entry"
 
     # Test valid multiple service selection
-    flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
+    flow.async_create_entry = Mock(return_value={"type": "create_entry"})
     result = await flow.async_step_service_select({"services": [SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS]})
     assert result["type"] == "create_entry"
 
     # Test that schema accepts list inputs (validates cv.ensure_list works)
-    flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
+    flow.async_create_entry = Mock(return_value={"type": "create_entry"})
     result = await flow.async_step_service_select({"services": SERVICE_TYPE_ELECTRICITY})  # Single string, should be converted to list
     assert result["type"] == "create_entry"
 
