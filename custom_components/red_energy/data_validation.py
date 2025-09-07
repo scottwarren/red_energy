@@ -18,15 +18,14 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise DataValidationError("Customer data must be a dictionary")
 
-    required_fields = ["id", "name", "email"]
+    required_fields = ["customerNumber", "name", "email"]
     for field in required_fields:
         if field not in data:
             _LOGGER.warning("Missing required customer field: %s", field)
             # Provide default values for missing fields
-            if field == "id":
-                # Prefer email as a stable unique identifier if provided
-                fallback_email = data.get("email")
-                data[field] = (fallback_email or "unknown").strip().lower() if isinstance(fallback_email, str) else "unknown"
+            if field == "customerNumber":
+                # throw an error
+                raise DataValidationError(f"Missing required customer field: {field}")
             elif field == "name":
                 data[field] = "Red Energy Customer"
             elif field == "email":
@@ -34,7 +33,7 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Sanitize data
     validated_data = {
-        "id": str(data["id"]),
+        "customerNumber": str(data["customerNumber"]),
         "name": str(data["name"]).strip(),
         "email": str(data["email"]).strip().lower(),
     }
@@ -79,21 +78,23 @@ def validate_single_property(data: Dict[str, Any], *, index: int = 0, client_id:
         raise DataValidationError("Property data must be a dictionary")
 
     # Required fields (tolerant: synthesize ID if missing)
-    prop_id = data.get("id")
-    if not prop_id:
-        _LOGGER.warning("Property missing required 'id' field; synthesizing temporary id")
-        # Try alternative common keys, else generate stable-ish UUID
-        prop_id = (
-            data.get("property_id")
-            or data.get("propertyId")
-            or data.get("meter_number")
-            or data.get("meterNumber")
-            or (f"{client_id}-prop-{index+1}" if client_id else f"prop-{uuid.uuid4()}")
-        )
+    prop_number = data.get("propertyPhysicalNumber")
+    # if not prop_number:
+    #     _LOGGER.warning("Property missing required 'id' field; synthesizing temporary id")
+    #     # Try alternative common keys, else generate stable-ish UUID
+    #     prop_id = (
+    #         data.get("propertyPhysicalNumber")
+    #         or data.get("property_physical_number")
+    #         or data.get("property_id")
+    #         or data.get("propertyId")
+    #         or data.get("meter_number")
+    #         or data.get("meterNumber")
+    #         or (f"{client_id}-prop-{index+1}" if client_id else f"prop-{uuid.uuid4()}")
+    #     )
 
     validated_property = {
-        "id": str(prop_id),
-        "name": data.get("name", f"Property {str(prop_id)}"),
+        "prop_number": str(prop_number),
+        "name": data.get("name", f"Property {str(prop_number)}"),
         "address": validate_address(data.get("address", {})),
         "services": validate_services(data.get("services", [])),
     }
