@@ -61,6 +61,7 @@ async def async_setup_entry(
             entities.extend([
                 RedEnergyUsageSensor(coordinator, config_entry, account_id, service_type),
                 RedEnergyCostSensor(coordinator, config_entry, account_id, service_type),
+                RedEnergyCostPerUnitSensor(coordinator, config_entry, account_id, service_type),
                 RedEnergyTotalUsageSensor(coordinator, config_entry, account_id, service_type),
             ])
             
@@ -74,7 +75,7 @@ async def async_setup_entry(
                 ])
     
     _LOGGER.debug("Created %d sensors (%d advanced) for Red Energy integration", 
-                 len(entities), len(entities) - (len(selected_accounts) * len(services) * 3))
+                 len(entities), len(entities) - (len(selected_accounts) * len(services) * 4))
     async_add_entities(entities)
 
 
@@ -186,7 +187,7 @@ class RedEnergyCostSensor(RedEnergyBaseSensor):
         super().__init__(coordinator, config_entry, property_id, service_type, "total_cost")
         
         self._attr_device_class = SensorDeviceClass.MONETARY
-        self._attr_native_unit_of_measurement = "AUD"
+        self._attr_native_unit_of_measurement = "AUD"  # Total cost over period
         self._attr_state_class = SensorStateClass.TOTAL
 
     @property
@@ -205,6 +206,57 @@ class RedEnergyCostSensor(RedEnergyBaseSensor):
             "consumer_number": service_data.get("consumer_number"),
             "last_updated": service_data.get("last_updated"),
             "service_type": self._service_type,
+            "period": "30 days",
+        }
+
+
+class RedEnergyCostPerUnitSensor(RedEnergyBaseSensor):
+    """Red Energy cost per unit sensor (AUD/kWh or AUD/MJ)."""
+
+    def __init__(
+        self,
+        coordinator: RedEnergyDataCoordinator,
+        config_entry: ConfigEntry,
+        property_id: str,
+        service_type: str,
+    ) -> None:
+        """Initialize the cost per unit sensor."""
+        super().__init__(coordinator, config_entry, property_id, service_type, "cost_per_unit")
+        
+        self._attr_device_class = SensorDeviceClass.MONETARY
+        # Set appropriate cost per unit based on service type
+        if service_type == SERVICE_TYPE_ELECTRICITY:
+            self._attr_native_unit_of_measurement = "AUD/kWh"
+        elif service_type == SERVICE_TYPE_GAS:
+            self._attr_native_unit_of_measurement = "AUD/MJ"
+        else:
+            self._attr_native_unit_of_measurement = "AUD"
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self) -> Optional[float]:
+        """Return the cost per unit."""
+        total_cost = self.coordinator.get_total_cost(self._property_id, self._service_type)
+        total_usage = self.coordinator.get_total_usage(self._property_id, self._service_type)
+        
+        if total_cost is None or total_usage is None or total_usage == 0:
+            return None
+        
+        return round(total_cost / total_usage, 4)
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict[str, Any]]:
+        """Return extra state attributes."""
+        service_data = self.coordinator.get_service_usage(self._property_id, self._service_type)
+        if not service_data:
+            return None
+        
+        return {
+            "consumer_number": service_data.get("consumer_number"),
+            "last_updated": service_data.get("last_updated"),
+            "service_type": self._service_type,
+            "total_cost": self.coordinator.get_total_cost(self._property_id, self._service_type),
+            "total_usage": self.coordinator.get_total_usage(self._property_id, self._service_type),
             "period": "30 days",
         }
 
