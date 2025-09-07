@@ -258,6 +258,10 @@ cd ha-red-energy-au
 # Install test dependencies
 pip install -r requirements-test.txt
 
+# Set up environment for auth scripts (optional)
+cp .env.example .env
+edit .env  # fill RED_USERNAME, RED_PASSWORD, RED_CLIENT_ID
+
 # Run tests
 pytest tests/ -v
 ```
