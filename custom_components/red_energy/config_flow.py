@@ -163,7 +163,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(
                     f"{user_input[CONF_USERNAME]}_{user_input[CONF_CLIENT_ID]}"
                 )
-                await self._abort_if_unique_id_configured()
+                self._abort_if_unique_id_configured()
 
                 # Move to next step
                 # If tests override async_show_form with an AsyncMock, route to account selection
