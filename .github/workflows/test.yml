@@ -30,6 +30,18 @@ jobs:
         # Ensure project root is on sys.path for imports like custom_components.*
         echo "PYTHONPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
 
+    - name: Auth smoke test (real credentials)
+      env:
+        RED_USERNAME: ${{ secrets.RED_USERNAME }}
+        RED_PASSWORD: ${{ secrets.RED_PASSWORD }}
+        RED_CLIENT_ID: ${{ secrets.RED_CLIENT_ID }}
+      run: |
+        if [ -z "$RED_USERNAME" ] || [ -z "$RED_PASSWORD" ] || [ -z "$RED_CLIENT_ID" ]; then
+          echo "Auth secrets not set; skipping auth smoke test.";
+        else
+          python scripts/auth_test.py;
+        fi
+
     - name: Lint with flake8
       run: |
         # Install flake8 if not in requirements
