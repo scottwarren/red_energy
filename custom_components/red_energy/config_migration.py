@@ -159,11 +159,8 @@ class RedEnergyConfigValidator:
             vol.Required(CONF_USERNAME): cv.string,
             vol.Required(CONF_PASSWORD): cv.string,
             vol.Required(CONF_CLIENT_ID): cv.string,
-            vol.Required(DATA_SELECTED_ACCOUNTS): vol.All(cv.ensure_list, [cv.string]),
-            vol.Required("services"): vol.All(
-                cv.ensure_list, 
-                [vol.In([SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS])]
-            ),
+            vol.Required(DATA_SELECTED_ACCOUNTS): [cv.string],
+            vol.Required("services"): [vol.In([SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS])],
         })
         
         # Options schema
@@ -181,10 +178,7 @@ class RedEnergyConfigValidator:
             vol.Required("id"): cv.string,
             vol.Required("name"): cv.string,
             vol.Optional("address", default={}): dict,
-            vol.Optional("services", default=[]): vol.All(
-                cv.ensure_list,
-                [vol.In([SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS])]
-            ),
+            vol.Optional("services", default=[]): [vol.In([SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS])],
         })
         
         return {
@@ -193,62 +187,85 @@ class RedEnergyConfigValidator:
             "account": account_schema,
         }
 
+    def _coerce_list(self, value):
+        """Coerce a single string or None into a list, leave lists intact."""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, tuple):
+            return list(value)
+        return [value]
+
     def validate_config_entry(self, config_entry: ConfigEntry) -> Tuple[bool, List[str]]:
         """Validate a complete config entry."""
         errors = []
-        
+
+        data = dict(config_entry.data)
+        options = dict(config_entry.options)
+
+        # Backward-compatible normalization (was using cv.ensure_list before)
+        if DATA_SELECTED_ACCOUNTS in data:
+            data[DATA_SELECTED_ACCOUNTS] = self._coerce_list(data.get(DATA_SELECTED_ACCOUNTS))
+        if "services" in data:
+            data["services"] = self._coerce_list(data.get("services"))
+
         try:
             # Validate base configuration
-            self._validation_schemas["base_config"](config_entry.data)
+            self._validation_schemas["base_config"](data)
         except vol.Error as err:
             errors.append(f"Base configuration validation failed: {err}")
-        
+
         try:
             # Validate options
-            self._validation_schemas["options"](config_entry.options)
+            self._validation_schemas["options"](options)
         except vol.Error as err:
             errors.append(f"Options validation failed: {err}")
-        
+
         # Additional validation checks
         validation_errors = self._perform_additional_validation(config_entry)
         errors.extend(validation_errors)
-        
+
         return len(errors) == 0, errors
 
     def _perform_additional_validation(self, config_entry: ConfigEntry) -> List[str]:
         """Perform additional validation checks."""
         errors = []
-        
+
         # Check that at least one account is selected
-        selected_accounts = config_entry.data.get(DATA_SELECTED_ACCOUNTS, [])
+        selected_accounts = self._coerce_list(config_entry.data.get(DATA_SELECTED_ACCOUNTS, []))
         if not selected_accounts:
             errors.append("At least one account must be selected")
-        
+
         # Check that at least one service is selected
-        services = config_entry.data.get("services", [])
+        services = self._coerce_list(config_entry.data.get("services", []))
         if not services:
             errors.append("At least one service type must be selected")
-        
+
         # Validate scan interval
         scan_interval = config_entry.options.get(CONF_SCAN_INTERVAL, "5min")
         if scan_interval not in SCAN_INTERVAL_OPTIONS:
             errors.append(f"Invalid scan interval: {scan_interval}")
-        
+
         # Check for reasonable number of accounts (performance consideration)
         if len(selected_accounts) > 10:
             errors.append("Maximum of 10 accounts supported for optimal performance")
-        
+
         return errors
 
     def validate_account_data(self, account_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate individual account data."""
         errors = []
-        
+
+        account_data = dict(account_data)
+        if "services" in account_data:
+            account_data["services"] = self._coerce_list(account_data.get("services"))
+
         try:
             self._validation_schemas["account"](account_data)
         except vol.Error as err:
             errors.append(f"Account validation failed: {err}")
-        
+
         return len(errors) == 0, errors
 
     def validate_credentials(
