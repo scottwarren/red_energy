@@ -342,11 +342,11 @@ class RedEnergyDailyAverageSensor(RedEnergyBaseSensor):
 
         usage_data = service_data["usage_data"].get("usage_data", [])
         if not usage_data:
-            return None
+            return 0.0
 
         # Calculate average daily usage
         total_usage = sum(entry.get("usage", 0) for entry in usage_data)
-        return round(total_usage / len(usage_data), 2) if usage_data else 0
+        return round(total_usage / len(usage_data), 2) if usage_data else 0.0
 
     @property
     def extra_state_attributes(self) -> Optional[dict[str, Any]]:
