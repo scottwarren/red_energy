@@ -63,15 +63,15 @@ async def main() -> int:
 
         # Step 2: Get discovery data
         discovery = await api._get_discovery_data()
-        
+
         # Step 3: PKCE flow
         code_verifier = api._generate_code_verifier()
         code_challenge = api._generate_code_challenge(code_verifier)
-        
+
         # Step 4: Get authorization code
         auth_endpoint = discovery["authorization_endpoint"]
         auth_code = await api._get_authorization_code(auth_endpoint, session_token, client_id, code_challenge)
-        
+
         # Step 5: Exchange for tokens
         token_endpoint = discovery["token_endpoint"]
         await api._exchange_code_for_tokens(token_endpoint, auth_code, client_id, code_verifier)
@@ -81,7 +81,7 @@ async def main() -> int:
         print("2. Customer Information:")
         customer_raw = await api.get_customer_data()
         customer_norm = validate_customer_data(dict(customer_raw))
-        
+
         print(f"  Customer ID: {customer_norm.get('id')}")
         print(f"  Name: {customer_norm.get('name')}")
         print(f"  Email: {customer_norm.get('email')}")
@@ -92,13 +92,13 @@ async def main() -> int:
         print("3. Properties and Services:")
         properties_raw = await api.get_properties()
         properties_norm = validate_properties_data(list(properties_raw or []), client_id=client_id)
-        
+
         all_consumers = []
         for i, prop in enumerate(properties_norm):
             print(f"  Property {i+1}: {prop.get('name')}")
             print(f"    ID: {prop.get('id')}")
             print(f"    Address: {prop.get('address', {}).get('short_form', 'N/A')}")
-            
+
             services = prop.get('services', [])
             print(f"    Services ({len(services)}):")
             for j, service in enumerate(services):
@@ -106,9 +106,9 @@ async def main() -> int:
                 service_type = service.get('type')
                 nmi = service.get('nmi', 'N/A')
                 active = service.get('active', False)
-                
+
                 print(f"      {j+1}. {service_type.upper()} - Consumer: {consumer_num}, NMI: {nmi}, Active: {active}")
-                
+
                 if consumer_num:
                     all_consumers.append({
                         'consumer_number': consumer_num,
@@ -128,22 +128,22 @@ async def main() -> int:
             print(f"  Consumer {i+1}: {consumer['consumer_number']} ({consumer['service_type']})")
             print(f"    Property: {consumer['property_name']}")
             print(f"    NMI: {consumer['nmi']}")
-            
+
             try:
                 # Get usage data for the last 30 days
                 to_date = datetime.now()
                 from_date = to_date - timedelta(days=30)
-                
+
                 usage_raw = await api.get_usage_data(
-                    consumer['consumer_number'], 
-                    from_date, 
+                    consumer['consumer_number'],
+                    from_date,
                     to_date
                 )
                 print(f"    Raw usage data keys: {list(usage_raw.keys()) if isinstance(usage_raw, dict) else 'Not a dict'}")
-                
+
                 # Try to validate and show summary
                 try:
-                    usage_norm = validate_usage_data(usage_raw)
+                    usage_norm = validate_usage_data(usage_raw, consumer['consumer_number'])
                     print(f"    Validated usage entries: {len(usage_norm.get('usage_data', []))}")
                     print(f"    Total usage: {usage_norm.get('total_usage', 0)} kWh")
                     print(f"    Total cost: ${usage_norm.get('total_cost', 0)}")
@@ -151,10 +151,10 @@ async def main() -> int:
                 except Exception as validation_err:
                     print(f"    Validation failed: {validation_err}")
                     print(f"    Raw data sample: {str(usage_raw)[:500]}...")
-                
+
             except Exception as usage_err:
                 print(f"    ✗ Failed to fetch usage: {usage_err}")
-            
+
             print()
 
         print("=== COMPLETE DATA DUMP FINISHED ===")
