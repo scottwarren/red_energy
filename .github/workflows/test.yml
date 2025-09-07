@@ -47,5 +47,5 @@ jobs:
     - name: Type check with mypy
       run: |
         pip install mypy
-        mypy custom_components/red_energy --ignore-missing-imports
+        mypy --config-file mypy.ini
       continue-on-error: false
