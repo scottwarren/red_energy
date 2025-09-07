@@ -15,14 +15,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Create ZIP file for release
         run: |
           cd custom_components/red_energy
           zip -r ../../red_energy.zip .
           cd ../..
-          
+
       - name: Upload ZIP to release
         uses: svenstaro/upload-release-action@v2
         with:
