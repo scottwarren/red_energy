@@ -18,7 +18,11 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise DataValidationError("Customer data must be a dictionary")
 
-    required_fields = ["customerNumber", "name", "email"]
+    # TODO: Confirm field mapping - API returns customerNumber but integration expects id
+    # API actual: customerNumber: 7053036
+    # Integration expects: id field for unique identification
+
+    required_fields = ["customerNumber", "name", "email", "accounts"]
     for field in required_fields:
         if field not in data:
             _LOGGER.warning("Missing required customer field: %s", field)
@@ -33,9 +37,15 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Sanitize data
     validated_data = {
+        "id": str(data["customerNumber"]),  # TODO: Confirm this mapping
         "customerNumber": str(data["customerNumber"]),
         "name": str(data["name"]).strip(),
         "email": str(data["email"]).strip().lower(),
+        "accounts": str(data["accounts"]),
+        "account_ids": [
+            ".".join([str(account["customerNumber"]), str(account["accountNumber"])])
+                for account in data["accounts"]
+        ],
     }
 
     # Add optional fields if present
@@ -77,26 +87,49 @@ def validate_single_property(data: Dict[str, Any], *, index: int = 0, client_id:
     if not isinstance(data, dict):
         raise DataValidationError("Property data must be a dictionary")
 
-    # Required fields (tolerant: synthesize ID if missing)
-    prop_number = data.get("propertyPhysicalNumber")
-    # if not prop_number:
-    #     _LOGGER.warning("Property missing required 'id' field; synthesizing temporary id")
-    #     # Try alternative common keys, else generate stable-ish UUID
-    #     prop_id = (
-    #         data.get("propertyPhysicalNumber")
-    #         or data.get("property_physical_number")
-    #         or data.get("property_id")
-    #         or data.get("propertyId")
-    #         or data.get("meter_number")
-    #         or data.get("meterNumber")
-    #         or (f"{client_id}-prop-{index+1}" if client_id else f"prop-{uuid.uuid4()}")
-    #     )
+    # TODO: Confirm field mapping for property ID
+    # API actual: propertyPhysicalNumber: 84953336, propertyNumber: "84953336.8732834"
+    # Integration expects: id field for unique identification
+
+    # TODO: Confirm field mapping for account_ids
+    # API actual: accountNumber: 8732834 (single number, not array)
+    # Integration expects: account_ids array
+
+    # TODO: Confirm field mapping for services
+    # API actual: consumers array with consumerNumber, utility (E), nmi, etc.
+    # Integration expects: services array with type, consumer_number
+
+    # TODO: Confirm field mapping for address
+    # API actual: nested address object with displayAddress, displayAddresses.shortForm, etc.
+    # Integration expects: street, city, state, postcode fields
+
+    # For now, use the actual API fields and add TODO comments
+    property_id = data.get("propertyPhysicalNumber") or data.get("propertyNumber")
+    if not property_id:
+        raise DataValidationError("Property missing required 'propertyPhysicalNumber' or 'propertyNumber' field")
+
+    # Map consumers to services format
+    consumers = data.get("consumers", [])
+    services = []
+    for consumer in consumers:
+        # TODO: Confirm utility mapping - API has 'E' for electricity, need to map to 'electricity'
+        utility = consumer.get("utility", "")
+        service_type = "electricity" if utility == "E" else "gas" if utility == "G" else utility.lower()
+
+        services.append({
+            "type": service_type,
+            "consumer_number": str(consumer.get("consumerNumber", "")),
+            "active": consumer.get("status") == "ON",
+            "nmi": consumer.get("nmi", ""),
+            "meter_type": consumer.get("meterType", ""),
+        })
 
     validated_property = {
-        "prop_number": str(prop_number),
-        "name": data.get("name", f"Property {str(prop_number)}"),
+        "id": str(property_id),  # TODO: Confirm this mapping
+        "prop_number": str(property_id),
+        "name": data.get("address", {}).get("displayAddresses", {}).get("shortForm", f"Property {property_id}"),
         "address": validate_address(data.get("address", {})),
-        "services": validate_services(data.get("services", [])),
+        "services": services,  # TODO: Confirm this mapping
     }
 
     return validated_property
@@ -107,11 +140,17 @@ def validate_address(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         data = {}
 
+    # TODO: Confirm address field mapping
+    # API actual: nested structure with street, suburb, state, postcode, displayAddresses.shortForm
+    # Integration expects: street, city, state, postcode
+    
     return {
         "street": data.get("street", "").strip(),
-        "city": data.get("city", "").strip(),
+        "city": data.get("suburb", data.get("city", "")).strip(),  # API uses 'suburb' not 'city'
         "state": data.get("state", "").strip(),
         "postcode": data.get("postcode", "").strip(),
+        "display_address": data.get("displayAddress", "").strip(),  # Keep original for reference
+        "short_form": data.get("displayAddresses", {}).get("shortForm", "").strip(),
     }
 
 
