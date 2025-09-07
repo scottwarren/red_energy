@@ -88,7 +88,7 @@ class RedEnergyDataCoordinator(DataUpdateCoordinator):
                 self._customer_data = validate_customer_data(raw_customer_data)
 
                 raw_properties = await self.api.get_properties()
-                self._properties = validate_properties_data(raw_properties)
+                self._properties = validate_properties_data(raw_properties, client_id=self.client_id)
 
             # Fetch usage data for selected accounts and services
             usage_data = {}
