@@ -1,13 +1,19 @@
 {
   "domain": "red_energy",
   "name": "Red Energy",
-  "codeowners": ["@craibo"],
+  "codeowners": [
+    "@scottwarren"
+  ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/craibo/ha-red-energy-au",
+  "documentation": "https://github.com/scottwarren/red_energy",
+  "documentation_url": "https://github.com/scottwarren/red_energy",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/craibo/ha-red-energy-au/issues",
-  "requirements": ["aiohttp", "voluptuous"],
+  "issue_tracker": "https://github.com/scottwarren/red_energy/issues",
+  "requirements": [
+    "aiohttp",
+    "voluptuous"
+  ],
   "version": "1.5.2"
 }
