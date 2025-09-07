@@ -7,7 +7,6 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/scottwarren/red_energy",
-  "documentation_url": "https://github.com/scottwarren/red_energy",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/scottwarren/red_energy/issues",
