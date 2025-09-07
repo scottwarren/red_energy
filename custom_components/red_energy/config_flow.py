@@ -18,7 +18,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import config_validation as cv
 
 from .api import RedEnergyAPI, RedEnergyAPIError, RedEnergyAuthError
-from .data_validation import validate_config_data, DataValidationError
+from .data_validation import validate_config_data, validate_properties_data, DataValidationError
 from .const import (
     CONF_CLIENT_ID,
     CONF_ENABLE_ADVANCED_SENSORS,
@@ -87,7 +87,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
         # Get customer data and properties
         customer_data = await api.get_customer_data()
-        properties = await api.get_properties()
+        raw_properties = await api.get_properties()
+        # Validate and normalize properties, synthesizing IDs if needed using client_id
+        properties = validate_properties_data(raw_properties, client_id=data[CONF_CLIENT_ID])
 
         if not properties:
             raise NoAccounts
@@ -313,10 +315,16 @@ class RedEnergyOptionsFlowHandler(config_entries.OptionsFlow):
             entry_data = self.hass.data[DOMAIN][self.config_entry.entry_id]
             coordinator = entry_data["coordinator"]
 
-            new_interval = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-            if new_interval != coordinator.update_interval.total_seconds():
-                coordinator.update_interval = timedelta(seconds=new_interval)
-                _LOGGER.info("Updated polling interval to %d seconds", new_interval)
+            new_interval_setting = user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            # Translate setting (e.g., "5min") to seconds
+            if isinstance(new_interval_setting, str):
+                new_seconds = SCAN_INTERVAL_OPTIONS.get(new_interval_setting, DEFAULT_SCAN_INTERVAL)
+            else:
+                new_seconds = int(new_interval_setting)
+
+            if int(coordinator.update_interval.total_seconds()) != int(new_seconds):
+                coordinator.update_interval = timedelta(seconds=int(new_seconds))
+                _LOGGER.info("Updated polling interval to %d seconds", int(new_seconds))
 
             return self.async_create_entry(title="", data=user_input)
 
@@ -351,11 +359,17 @@ class RedEnergyOptionsFlowHandler(config_entries.OptionsFlow):
             vol.Required(CONF_ENABLE_ADVANCED_SENSORS, default=current_advanced_sensors): bool,
         })
 
+        # Display current interval human-readable regardless of key/value type
+        if isinstance(current_scan_interval, str):
+            current_seconds = SCAN_INTERVAL_OPTIONS.get(current_scan_interval, DEFAULT_SCAN_INTERVAL)
+        else:
+            current_seconds = int(current_scan_interval)
+
         return self.async_show_form(
             step_id="init",
             data_schema=schema,
             description_placeholders={
-                "current_interval": f"{current_scan_interval // 60} minutes",
+                "current_interval": f"{current_seconds // 60} minutes",
             }
         )
 
