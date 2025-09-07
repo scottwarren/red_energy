@@ -83,7 +83,9 @@ async def main() -> int:
 
         print("Step 6: Customer data…")
         customer_raw = await api.get_customer_data()
+        print(customer_raw)
         customer_norm = validate_customer_data(dict(customer_raw)) if isinstance(customer_raw, dict) else {}
+        print(customer_norm)
         if verbose:
             print({"raw": customer_raw, "normalized": customer_norm})
         else:
