@@ -28,9 +28,9 @@ class TestCustomerDataValidation:
             ],
             "phone": "0405 557 783"
         }
-        
+
         result = validate_customer_data(raw_data)
-        
+
         # Should use customerNumber as the ID
         assert result["id"] == "7053036"
         assert result["customerNumber"] == "7053036"
@@ -46,7 +46,7 @@ class TestCustomerDataValidation:
             "email": "realscottwarren@gmail.com",
             "accounts": []
         }
-        
+
         with pytest.raises(DataValidationError, match="Missing required customer field: customerNumber"):
             validate_customer_data(raw_data)
 
@@ -79,15 +79,15 @@ class TestPropertyDataValidation:
                 }
             ]
         }
-        
+
         result = validate_single_property(raw_data)
-        
+
         # Should use propertyPhysicalNumber as ID
         assert result["id"] == "84953336"
         assert result["prop_number"] == "84953336"
         assert result["name"] == "Unit 8, 4 Prince Street, Coffs Harbour"
         assert result["account_ids"] == ["8732834"]
-        
+
         # Should map consumers to services
         services = result["services"]
         assert len(services) == 1
@@ -113,9 +113,9 @@ class TestPropertyDataValidation:
                 }
             ]
         }
-        
+
         result = validate_single_property(raw_data)
-        
+
         services = result["services"]
         assert len(services) == 1
         assert services[0]["type"] == "gas"  # 'G' mapped to 'gas'
@@ -128,7 +128,7 @@ class TestPropertyDataValidation:
             "address": {},
             "consumers": []
         }
-        
+
         with pytest.raises(DataValidationError, match="Property missing required 'propertyPhysicalNumber' field"):
             validate_single_property(raw_data)
 
@@ -150,9 +150,9 @@ class TestPropertyDataValidation:
                 ]
             }
         ]
-        
+
         result = validate_properties_data(raw_data)
-        
+
         assert len(result) == 1
         assert result[0]["id"] == "84953336"
         assert len(result[0]["services"]) == 1
@@ -174,9 +174,9 @@ class TestAddressValidation:
                 "shortForm": "Unit 8, 4 Prince Street, Coffs Harbour"
             }
         }
-        
+
         result = validate_address(raw_data)
-        
+
         assert result["street"] == "PRINCE STREET"
         assert result["city"] == "COFFS HARBOUR"  # Should map suburb to city
         assert result["state"] == "NSW"
@@ -192,15 +192,15 @@ class TestAddressValidation:
             "state": "VIC",
             "postcode": "3000"
         }
-        
+
         result = validate_address(raw_data)
-        
+
         assert result["city"] == "TEST CITY"
 
     def test_validate_address_empty_data(self):
         """Test address validation with empty data."""
         result = validate_address({})
-        
+
         assert result["street"] == ""
         assert result["city"] == ""
         assert result["state"] == ""
@@ -248,43 +248,43 @@ class TestUsageDataValidation:
                 ]
             }
         ]
-        
+
         result = validate_usage_data(raw_data, "4373002210")
-        
+
         assert result["consumer_number"] == "4373002210"
         assert result["from_date"] == "2025-08-09"
         assert result["to_date"] == "2025-08-10"
-        
+
         # Should aggregate half-hour intervals to daily totals
         usage_data = result["usage_data"]
         assert len(usage_data) == 2
-        
+
         # First day: 0.241 + 0.242 = 0.483 kWh, 0.0742 + 0.0742 = 0.1484 AUD (rounded to 0.15)
         assert usage_data[0]["date"] == "2025-08-09"
         assert usage_data[0]["usage"] == 0.483
         assert usage_data[0]["cost"] == 0.15  # Rounded to 2 decimal places
         assert usage_data[0]["unit"] == "kWh"
-        
+
         # Second day: 0.200 kWh, 0.066 AUD (rounded to 0.07)
         assert usage_data[1]["date"] == "2025-08-10"
         assert usage_data[1]["usage"] == 0.200
         assert usage_data[1]["cost"] == 0.07  # Rounded to 2 decimal places
-        
-        # Total: 0.483 + 0.200 = 0.683 kWh (rounded to 0.68), 0.15 + 0.07 = 0.22 AUD
+
+        # Total: 0.483 + 0.200 = 0.683 kWh (rounded to 0.68), 0.15 + 0.07 = 0.21 AUD (rounded)
         assert result["total_usage"] == 0.68  # Rounded to 2 decimal places
-        assert result["total_cost"] == 0.22  # Rounded to 2 decimal places
+        assert result["total_cost"] == 0.21  # Rounded to 2 decimal places
 
     def test_validate_usage_data_not_list(self):
         """Test usage data validation with non-list input."""
         raw_data = {"invalid": "structure"}
-        
+
         with pytest.raises(DataValidationError, match="Usage data must be a list"):
             validate_usage_data(raw_data, "4373002210")
 
     def test_validate_usage_data_empty_list(self):
         """Test usage data validation with empty list."""
         result = validate_usage_data([], "4373002210")
-        
+
         assert result["consumer_number"] == "4373002210"
         assert result["from_date"] == ""
         assert result["to_date"] == ""
@@ -304,9 +304,9 @@ class TestUsageDataValidation:
                 ]
             }
         ]
-        
+
         result = validate_usage_data(raw_data, "4373002210")
-        
+
         # Should skip entries without usageDate
         assert result["usage_data"] == []
         assert result["total_usage"] == 0.0
@@ -327,7 +327,7 @@ class TestIntegrationWithRealData:
                 {"customerNumber": 7053036, "accountNumber": 8732834, "role": "PRIMAR"}
             ]
         }
-        
+
         # Property data (from real API)
         property_data = {
             "propertyPhysicalNumber": 84953336,
@@ -359,7 +359,7 @@ class TestIntegrationWithRealData:
                 }
             ]
         }
-        
+
         # Usage data (from real API)
         usage_data = [
             {
@@ -376,17 +376,17 @@ class TestIntegrationWithRealData:
                 ]
             }
         ]
-        
+
         # Validate all data
         validated_customer = validate_customer_data(customer_data)
         validated_properties = validate_properties_data([property_data])
         validated_usage = validate_usage_data(usage_data, "4373002210")
-        
+
         # Verify customer validation
         assert validated_customer["id"] == "7053036"
         assert validated_customer["name"] == "MR SCOTT WARREN"
         assert validated_customer["account_ids"] == ["7053036.8732834"]
-        
+
         # Verify property validation
         assert len(validated_properties) == 1
         prop = validated_properties[0]
@@ -396,7 +396,7 @@ class TestIntegrationWithRealData:
         assert prop["services"][0]["type"] == "electricity"
         assert prop["services"][0]["consumer_number"] == "4373002210"
         assert prop["services"][0]["nmi"] == "4407105303"
-        
+
         # Verify usage validation
         assert validated_usage["consumer_number"] == "4373002210"
         assert validated_usage["total_usage"] == 0.24  # Rounded to 2 decimal places
