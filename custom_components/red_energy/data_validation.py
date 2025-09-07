@@ -18,10 +18,6 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise DataValidationError("Customer data must be a dictionary")
 
-    # TODO: Confirm field mapping - API returns customerNumber but integration expects id
-    # API actual: customerNumber: 7053036
-    # Integration expects: id field for unique identification
-
     required_fields = ["customerNumber", "name", "email", "accounts"]
     for field in required_fields:
         if field not in data:
@@ -35,9 +31,9 @@ def validate_customer_data(data: Dict[str, Any]) -> Dict[str, Any]:
             elif field == "email":
                 data[field] = "unknown@redenergy.com.au"
 
-    # Sanitize data
+    # Sanitize data - use customerNumber as the unique ID
     validated_data = {
-        "id": str(data["customerNumber"]),  # TODO: Confirm this mapping
+        "id": str(data["customerNumber"]),
         "customerNumber": str(data["customerNumber"]),
         "name": str(data["name"]).strip(),
         "email": str(data["email"]).strip().lower(),
@@ -87,35 +83,19 @@ def validate_single_property(data: Dict[str, Any], *, index: int = 0, client_id:
     if not isinstance(data, dict):
         raise DataValidationError("Property data must be a dictionary")
 
-    # TODO: Confirm field mapping for property ID
-    # API actual: propertyPhysicalNumber: 84953336, propertyNumber: "84953336.8732834"
-    # Integration expects: id field for unique identification
-
-    # TODO: Confirm field mapping for account_ids
-    # API actual: accountNumber: 8732834 (single number, not array)
-    # Integration expects: account_ids array
-
-    # TODO: Confirm field mapping for services
-    # API actual: consumers array with consumerNumber, utility (E), nmi, etc.
-    # Integration expects: services array with type, consumer_number
-
-    # TODO: Confirm field mapping for address
-    # API actual: nested address object with displayAddress, displayAddresses.shortForm, etc.
-    # Integration expects: street, city, state, postcode fields
-
-    # For now, use the actual API fields and add TODO comments
-    property_id = data.get("propertyPhysicalNumber") or data.get("propertyNumber")
+    # Use propertyPhysicalNumber as the primary ID (more stable than propertyNumber)
+    property_id = data.get("propertyPhysicalNumber")
     if not property_id:
-        raise DataValidationError("Property missing required 'propertyPhysicalNumber' or 'propertyNumber' field")
+        raise DataValidationError("Property missing required 'propertyPhysicalNumber' field")
 
     # Map consumers to services format
     consumers = data.get("consumers", [])
     services = []
     for consumer in consumers:
-        # TODO: Confirm utility mapping - API has 'E' for electricity, need to map to 'electricity'
+        # Map utility codes: 'E' = electricity, 'G' = gas
         utility = consumer.get("utility", "")
         service_type = "electricity" if utility == "E" else "gas" if utility == "G" else utility.lower()
-
+        
         services.append({
             "type": service_type,
             "consumer_number": str(consumer.get("consumerNumber", "")),
@@ -124,12 +104,21 @@ def validate_single_property(data: Dict[str, Any], *, index: int = 0, client_id:
             "meter_type": consumer.get("meterType", ""),
         })
 
+    # Get property name from address display
+    address_data = data.get("address", {})
+    property_name = (
+        address_data.get("displayAddresses", {}).get("shortForm") or
+        address_data.get("displayAddress") or
+        f"Property {property_id}"
+    )
+
     validated_property = {
-        "id": str(property_id),  # TODO: Confirm this mapping
+        "id": str(property_id),
         "prop_number": str(property_id),
-        "name": data.get("address", {}).get("displayAddresses", {}).get("shortForm", f"Property {property_id}"),
-        "address": validate_address(data.get("address", {})),
-        "services": services,  # TODO: Confirm this mapping
+        "name": property_name,
+        "address": validate_address(address_data),
+        "services": services,
+        "account_ids": [str(data.get("accountNumber", ""))],  # Single account number as array
     }
 
     return validated_property
@@ -143,7 +132,7 @@ def validate_address(data: Dict[str, Any]) -> Dict[str, Any]:
     # TODO: Confirm address field mapping
     # API actual: nested structure with street, suburb, state, postcode, displayAddresses.shortForm
     # Integration expects: street, city, state, postcode
-    
+
     return {
         "street": data.get("street", "").strip(),
         "city": data.get("suburb", data.get("city", "")).strip(),  # API uses 'suburb' not 'city'
@@ -192,39 +181,70 @@ def validate_single_service(data: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def validate_usage_data(data: Dict[str, Any]) -> Dict[str, Any]:
+def validate_usage_data(data: Any) -> Dict[str, Any]:
     """Validate usage data from Red Energy API."""
-    if not isinstance(data, dict):
-        raise DataValidationError("Usage data must be a dictionary")
+    # TODO: Confirm usage data structure
+    # API actual: Returns array of usage entries directly, not wrapped in dict
+    # Each entry has: usageDate, halfHours array with consumptionKwh, consumptionDollar, etc.
+    # Integration expects: dict with consumer_number, usage_data array, totals
 
-    # Required fields
-    required_fields = ["consumer_number", "usage_data"]
-    for field in required_fields:
-        if field not in data:
-            raise DataValidationError(f"Usage data missing required field: {field}")
-
-    usage_entries = data["usage_data"]
-    if not isinstance(usage_entries, list):
-        raise DataValidationError("usage_data must be a list")
+    if not isinstance(data, list):
+        raise DataValidationError("Usage data must be a list (API returns array directly)")
 
     validated_entries = []
     total_usage = 0.0
     total_cost = 0.0
+    from_date = None
+    to_date = None
 
-    for entry in usage_entries:
+    for entry in data:
         try:
-            validated_entry = validate_usage_entry(entry)
-            validated_entries.append(validated_entry)
-            total_usage += validated_entry["usage"]
-            total_cost += validated_entry["cost"]
-        except DataValidationError as err:
+            # TODO: Confirm usage entry structure
+            # API actual: {usageDate: '2025-08-09', halfHours: [...]}
+            # Integration expects: {date: '2025-08-09', usage: float, cost: float, unit: 'kWh'}
+
+            usage_date = entry.get("usageDate")
+            if not usage_date:
+                continue
+
+            # Track date range
+            if not from_date or usage_date < from_date:
+                from_date = usage_date
+            if not to_date or usage_date > to_date:
+                to_date = usage_date
+
+            # Sum up all half-hour intervals for this day
+            half_hours = entry.get("halfHours", [])
+            daily_usage = 0.0
+            daily_cost = 0.0
+
+            for interval in half_hours:
+                # TODO: Confirm interval structure
+                # API actual: {consumptionKwh: 0.241, consumptionDollar: 0.07, consumptionDollarIncGst: 0.0742}
+                # Integration expects: usage and cost fields
+
+                daily_usage += float(interval.get("consumptionKwh", 0))
+                daily_cost += float(interval.get("consumptionDollarIncGst", 0))  # Use GST inclusive
+
+            validated_entries.append({
+                "date": usage_date,
+                "usage": round(daily_usage, 3),
+                "cost": round(daily_cost, 2),
+                "unit": "kWh",
+                "intervals": len(half_hours),  # Keep for debugging
+            })
+
+            total_usage += daily_usage
+            total_cost += daily_cost
+
+        except Exception as err:
             _LOGGER.warning("Usage entry validation failed: %s", err)
             continue
 
     return {
-        "consumer_number": str(data["consumer_number"]),
-        "from_date": data.get("from_date", ""),
-        "to_date": data.get("to_date", ""),
+        "consumer_number": "unknown",  # TODO: This should be passed in
+        "from_date": from_date or "",
+        "to_date": to_date or "",
         "usage_data": validated_entries,
         "total_usage": round(total_usage, 2),
         "total_cost": round(total_cost, 2),
