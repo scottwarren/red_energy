@@ -240,7 +240,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if len(self._selected_accounts) > 1:
                 title += f" ({len(self._selected_accounts)} accounts)"
 
-            return await self.async_create_entry(
+            return self.async_create_entry(
                 title=title,
                 data=config_data
             )
