@@ -96,13 +96,13 @@ def mock_coordinator():
     coordinator = Mock(spec=RedEnergyDataCoordinator)
     coordinator.data = MOCK_COORDINATOR_DATA
     coordinator.last_update_success = True
-    
+
     # Mock coordinator methods
     coordinator.get_latest_usage = Mock(return_value=22.1)
     coordinator.get_total_cost = Mock(return_value=19.3)
     coordinator.get_total_usage = Mock(return_value=60.8)
     coordinator.get_service_usage = Mock(return_value=MOCK_USAGE_DATA["84953336"]["services"]["electricity"])
-    
+
     return coordinator
 
 
@@ -139,17 +139,17 @@ class TestSensorSetup:
         """Test that basic sensors are created correctly."""
         # Setup mock data
         mock_hass.data[DOMAIN]["test_entry_id"]["coordinator"] = mock_coordinator
-        
+
         entities = []
         async_add_entities = Mock(side_effect=lambda new_entities: entities.extend(new_entities))
-        
+
         await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
-        
+
         # Should create 4 basic sensors per account/service combination
         # (usage, cost, cost_per_unit, total_usage)
         expected_count = 1 * 1 * 4  # 1 account * 1 service * 4 sensors
         assert len(entities) == expected_count
-        
+
         # Check sensor types
         sensor_types = [entity._sensor_type for entity in entities]
         assert "daily_usage" in sensor_types
@@ -163,16 +163,16 @@ class TestSensorSetup:
         # Enable advanced sensors
         mock_config_entry.options = {CONF_ENABLE_ADVANCED_SENSORS: True}
         mock_hass.data[DOMAIN]["test_entry_id"]["coordinator"] = mock_coordinator
-        
+
         entities = []
         async_add_entities = Mock(side_effect=lambda new_entities: entities.extend(new_entities))
-        
+
         await async_setup_entry(mock_hass, mock_config_entry, async_add_entities)
-        
+
         # Should create 8 sensors total (4 basic + 4 advanced)
         expected_count = 1 * 1 * 8  # 1 account * 1 service * 8 sensors
         assert len(entities) == expected_count
-        
+
         # Check advanced sensor types
         sensor_types = [entity._sensor_type for entity in entities]
         assert "daily_average" in sensor_types
@@ -189,7 +189,7 @@ class TestRedEnergyBaseSensor:
         sensor = RedEnergyBaseSensor(
             mock_coordinator, mock_config_entry, "84953336", "electricity", "test_sensor"
         )
-        
+
         assert sensor._property_id == "84953336"
         assert sensor._service_type == "electricity"
         assert sensor._sensor_type == "test_sensor"
@@ -201,9 +201,9 @@ class TestRedEnergyBaseSensor:
         sensor = RedEnergyBaseSensor(
             mock_coordinator, mock_config_entry, "84953336", "electricity", "test_sensor"
         )
-        
+
         assert sensor.available is True
-        
+
         # Test unavailable when coordinator fails
         mock_coordinator.last_update_success = False
         assert sensor.available is False
@@ -215,7 +215,7 @@ class TestRedEnergyUsageSensor:
     def test_usage_sensor_initialization_electricity(self, mock_coordinator, mock_config_entry):
         """Test usage sensor initialization for electricity."""
         sensor = RedEnergyUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
         assert sensor._attr_state_class == SensorStateClass.TOTAL_INCREASING
@@ -223,7 +223,7 @@ class TestRedEnergyUsageSensor:
     def test_usage_sensor_initialization_gas(self, mock_coordinator, mock_config_entry):
         """Test usage sensor initialization for gas."""
         sensor = RedEnergyUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_GAS)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == "MJ"
         assert sensor._attr_state_class == SensorStateClass.TOTAL_INCREASING
@@ -231,7 +231,7 @@ class TestRedEnergyUsageSensor:
     def test_usage_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test usage sensor native value."""
         sensor = RedEnergyUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value == 22.1
         mock_coordinator.get_latest_usage.assert_called_once_with("84953336", SERVICE_TYPE_ELECTRICITY)
 
@@ -242,7 +242,7 @@ class TestRedEnergyCostSensor:
     def test_cost_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test cost sensor initialization."""
         sensor = RedEnergyCostSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.MONETARY
         assert sensor._attr_native_unit_of_measurement == "AUD"
         assert sensor._attr_state_class == SensorStateClass.TOTAL
@@ -250,7 +250,7 @@ class TestRedEnergyCostSensor:
     def test_cost_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test cost sensor native value."""
         sensor = RedEnergyCostSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value == 19.3
         mock_coordinator.get_total_cost.assert_called_once_with("84953336", SERVICE_TYPE_ELECTRICITY)
 
@@ -261,7 +261,7 @@ class TestRedEnergyCostPerUnitSensor:
     def test_cost_per_unit_sensor_initialization_electricity(self, mock_coordinator, mock_config_entry):
         """Test cost per unit sensor initialization for electricity."""
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.MONETARY
         assert sensor._attr_native_unit_of_measurement == "AUD/kWh"
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
@@ -269,7 +269,7 @@ class TestRedEnergyCostPerUnitSensor:
     def test_cost_per_unit_sensor_initialization_gas(self, mock_coordinator, mock_config_entry):
         """Test cost per unit sensor initialization for gas."""
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_GAS)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.MONETARY
         assert sensor._attr_native_unit_of_measurement == "AUD/MJ"
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
@@ -277,29 +277,29 @@ class TestRedEnergyCostPerUnitSensor:
     def test_cost_per_unit_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test cost per unit sensor native value calculation."""
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # 19.3 / 60.8 = 0.3174 AUD/kWh
         expected_value = round(19.3 / 60.8, 4)
         assert sensor.native_value == expected_value
-        
+
         mock_coordinator.get_total_cost.assert_called_with("84953336", SERVICE_TYPE_ELECTRICITY)
         mock_coordinator.get_total_usage.assert_called_with("84953336", SERVICE_TYPE_ELECTRICITY)
 
     def test_cost_per_unit_sensor_native_value_zero_usage(self, mock_coordinator, mock_config_entry):
         """Test cost per unit sensor with zero usage."""
         mock_coordinator.get_total_usage.return_value = 0.0
-        
+
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value is None
 
     def test_cost_per_unit_sensor_native_value_none_data(self, mock_coordinator, mock_config_entry):
         """Test cost per unit sensor with None data."""
         mock_coordinator.get_total_cost.return_value = None
         mock_coordinator.get_total_usage.return_value = None
-        
+
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value is None
 
 
@@ -309,7 +309,7 @@ class TestRedEnergyTotalUsageSensor:
     def test_total_usage_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test total usage sensor initialization."""
         sensor = RedEnergyTotalUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
         assert sensor._attr_state_class == SensorStateClass.TOTAL
@@ -317,7 +317,7 @@ class TestRedEnergyTotalUsageSensor:
     def test_total_usage_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test total usage sensor native value."""
         sensor = RedEnergyTotalUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value == 60.8
         mock_coordinator.get_total_usage.assert_called_once_with("84953336", SERVICE_TYPE_ELECTRICITY)
 
@@ -328,7 +328,7 @@ class TestRedEnergyDailyAverageSensor:
     def test_daily_average_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test daily average sensor initialization."""
         sensor = RedEnergyDailyAverageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
@@ -336,7 +336,7 @@ class TestRedEnergyDailyAverageSensor:
     def test_daily_average_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test daily average sensor native value calculation."""
         sensor = RedEnergyDailyAverageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # (20.5 + 18.2 + 22.1) / 3 = 20.27
         expected_value = round((20.5 + 18.2 + 22.1) / 3, 2)
         assert sensor.native_value == expected_value
@@ -344,9 +344,9 @@ class TestRedEnergyDailyAverageSensor:
     def test_daily_average_sensor_native_value_no_data(self, mock_coordinator, mock_config_entry):
         """Test daily average sensor with no data."""
         mock_coordinator.get_service_usage.return_value = {"usage_data": {"usage_data": []}}
-        
+
         sensor = RedEnergyDailyAverageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value == 0
 
 
@@ -356,7 +356,7 @@ class TestRedEnergyMonthlyAverageSensor:
     def test_monthly_average_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test monthly average sensor initialization."""
         sensor = RedEnergyMonthlyAverageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
@@ -364,7 +364,7 @@ class TestRedEnergyMonthlyAverageSensor:
     def test_monthly_average_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test monthly average sensor native value calculation."""
         sensor = RedEnergyMonthlyAverageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # 60.8 * (30.44 / 30) = 61.69
         expected_value = round(60.8 * (30.44 / 30), 2)
         assert sensor.native_value == expected_value
@@ -376,7 +376,7 @@ class TestRedEnergyPeakUsageSensor:
     def test_peak_usage_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test peak usage sensor initialization."""
         sensor = RedEnergyPeakUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_device_class == SensorDeviceClass.ENERGY
         assert sensor._attr_native_unit_of_measurement == UnitOfEnergy.KILO_WATT_HOUR
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
@@ -384,7 +384,7 @@ class TestRedEnergyPeakUsageSensor:
     def test_peak_usage_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test peak usage sensor native value."""
         sensor = RedEnergyPeakUsageSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # Peak usage should be 22.1 (highest value in test data)
         assert sensor.native_value == 22.1
 
@@ -395,7 +395,7 @@ class TestRedEnergyEfficiencySensor:
     def test_efficiency_sensor_initialization(self, mock_coordinator, mock_config_entry):
         """Test efficiency sensor initialization."""
         sensor = RedEnergyEfficiencySensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor._attr_native_unit_of_measurement == "%"
         assert sensor._attr_state_class == SensorStateClass.MEASUREMENT
         assert sensor._attr_icon == "mdi:leaf"
@@ -403,7 +403,7 @@ class TestRedEnergyEfficiencySensor:
     def test_efficiency_sensor_native_value(self, mock_coordinator, mock_config_entry):
         """Test efficiency sensor native value calculation."""
         sensor = RedEnergyEfficiencySensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # Should return a value between 0-100
         value = sensor.native_value
         assert value is not None
@@ -414,9 +414,9 @@ class TestRedEnergyEfficiencySensor:
         mock_coordinator.get_service_usage.return_value = {
             "usage_data": {"usage_data": [{"usage": 10.0}]}  # Only 1 day of data
         }
-        
+
         sensor = RedEnergyEfficiencySensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         assert sensor.native_value is None
 
 
@@ -458,17 +458,17 @@ class TestDataValidationIntegration:
                 }
             }
         }
-        
+
         mock_coordinator.data = {
             "customer": MOCK_CUSTOMER_DATA,
             "properties": [MOCK_PROPERTY_DATA],
             "usage_data": new_usage_data,
             "last_update": datetime.now().isoformat(),
         }
-        
+
         # Test that sensors can handle the new structure
         sensor = RedEnergyCostPerUnitSensor(mock_coordinator, mock_config_entry, "84953336", SERVICE_TYPE_ELECTRICITY)
-        
+
         # Should calculate cost per unit correctly
         expected_value = round(6.5 / 20.5, 4)
         assert sensor.native_value == expected_value
