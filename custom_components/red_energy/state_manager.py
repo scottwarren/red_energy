@@ -54,7 +54,7 @@ class RedEnergyStateManager:
         try:
             # Clean up old history entries before saving
             self._cleanup_old_history()
-            
+
             data = {
                 "entity_states": self._entity_states,
                 "restoration_data": self._restoration_data,
@@ -67,14 +67,14 @@ class RedEnergyStateManager:
             _LOGGER.error("Failed to save entity states: %s", err)
 
     def record_entity_state(
-        self, 
-        entity_id: str, 
-        state: str, 
+        self,
+        entity_id: str,
+        state: str,
         attributes: Dict[str, Any]
     ) -> None:
         """Record entity state for restoration."""
         now = dt_util.utcnow()
-        
+
         # Store current state
         self._entity_states[entity_id] = {
             "state": state,
@@ -82,19 +82,19 @@ class RedEnergyStateManager:
             "last_updated": now.isoformat(),
             "domain": entity_id.split('.')[0]
         }
-        
+
         # Add to history
         if entity_id not in self._state_history:
             self._state_history[entity_id] = []
-        
+
         history_entry = {
             "state": state,
             "timestamp": now.isoformat(),
             "key_attributes": self._extract_key_attributes(attributes)
         }
-        
+
         self._state_history[entity_id].append(history_entry)
-        
+
         # Limit history size
         if len(self._state_history[entity_id]) > self._max_history_entries:
             self._state_history[entity_id] = self._state_history[entity_id][-self._max_history_entries:]
@@ -102,27 +102,27 @@ class RedEnergyStateManager:
     def _extract_key_attributes(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
         """Extract key attributes for history tracking."""
         key_attrs = {}
-        
+
         # Always include these attributes if present
         important_attrs = [
             "unit_of_measurement", "device_class", "state_class",
             "calculation_period", "peak_date", "usage_variation",
             "friendly_name", "icon"
         ]
-        
+
         for attr in important_attrs:
             if attr in attributes:
                 key_attrs[attr] = attributes[attr]
-        
+
         return key_attrs
 
     def get_restoration_data(self, entity_id: str) -> Optional[Dict[str, Any]]:
         """Get restoration data for an entity."""
         if entity_id not in self._entity_states:
             return None
-        
+
         entity_data = self._entity_states[entity_id]
-        
+
         # Check if data is too old (older than 7 days)
         try:
             last_updated = datetime.fromisoformat(entity_data["last_updated"])
@@ -131,24 +131,24 @@ class RedEnergyStateManager:
                 return None
         except (ValueError, KeyError):
             return None
-        
+
         return {
             "state": entity_data["state"],
             "attributes": entity_data["attributes"]
         }
 
     def get_entity_history(
-        self, 
-        entity_id: str, 
+        self,
+        entity_id: str,
         hours: int = 24
     ) -> List[Dict[str, Any]]:
         """Get entity state history for the specified time period."""
         if entity_id not in self._state_history:
             return []
-        
+
         cutoff_time = dt_util.utcnow() - timedelta(hours=hours)
         recent_history = []
-        
+
         for entry in self._state_history[entity_id]:
             try:
                 entry_time = datetime.fromisoformat(entry["timestamp"])
@@ -156,16 +156,16 @@ class RedEnergyStateManager:
                     recent_history.append(entry)
             except (ValueError, KeyError):
                 continue
-        
+
         return recent_history
 
     async def async_restore_entity_states(
-        self, 
+        self,
         entity_ids: List[str]
     ) -> Dict[str, bool]:
         """Restore states for multiple entities."""
         restoration_results = {}
-        
+
         for entity_id in entity_ids:
             try:
                 restoration_data = self.get_restoration_data(entity_id)
@@ -183,12 +183,12 @@ class RedEnergyStateManager:
             except Exception as err:
                 _LOGGER.error("Failed to restore state for %s: %s", entity_id, err)
                 restoration_results[entity_id] = False
-        
+
         return restoration_results
 
     def mark_entity_for_restoration(
-        self, 
-        entity_id: str, 
+        self,
+        entity_id: str,
         restoration_strategy: str = "last_known"
     ) -> None:
         """Mark entity for specific restoration strategy."""
@@ -201,7 +201,7 @@ class RedEnergyStateManager:
         """Clean up old history entries."""
         cutoff_time = dt_util.utcnow() - timedelta(days=30)
         entities_to_clean = []
-        
+
         for entity_id, history in self._state_history.items():
             cleaned_history = []
             for entry in history:
@@ -211,12 +211,12 @@ class RedEnergyStateManager:
                         cleaned_history.append(entry)
                 except (ValueError, KeyError):
                     continue
-            
+
             if cleaned_history:
                 self._state_history[entity_id] = cleaned_history
             else:
                 entities_to_clean.append(entity_id)
-        
+
         # Remove entities with no recent history
         for entity_id in entities_to_clean:
             del self._state_history[entity_id]
@@ -226,13 +226,13 @@ class RedEnergyStateManager:
                 del self._restoration_data[entity_id]
 
     async def async_handle_entity_unavailable(
-        self, 
-        entity_id: str, 
+        self,
+        entity_id: str,
         restore_immediately: bool = False
     ) -> bool:
         """Handle entity becoming unavailable."""
         _LOGGER.debug("Entity %s became unavailable", entity_id)
-        
+
         if restore_immediately:
             restoration_data = self.get_restoration_data(entity_id)
             if restoration_data:
@@ -246,7 +246,7 @@ class RedEnergyStateManager:
                     return True
                 except Exception as err:
                     _LOGGER.error("Failed to restore unavailable entity %s: %s", entity_id, err)
-        
+
         return False
 
     def get_availability_stats(self) -> Dict[str, Any]:
@@ -254,14 +254,14 @@ class RedEnergyStateManager:
         total_entities = len(self._entity_states)
         available_count = 0
         unavailable_count = 0
-        
+
         for entity_id, entity_data in self._entity_states.items():
             current_state = self.hass.states.get(entity_id)
             if current_state and current_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 available_count += 1
             else:
                 unavailable_count += 1
-        
+
         return {
             "total_entities": total_entities,
             "available_entities": available_count,
@@ -285,7 +285,7 @@ class RedEnergyRestoreEntity(RestoreEntity):
     async def async_added_to_hass(self) -> None:
         """Handle entity being added to Home Assistant."""
         await super().async_added_to_hass()
-        
+
         # Attempt to restore last state
         last_state = await self.async_get_last_state()
         if last_state and last_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
@@ -314,7 +314,7 @@ class RedEnergyRestoreEntity(RestoreEntity):
                 str(self.state),
                 self.extra_state_attributes or {}
             )
-        
+
         await super().async_will_remove_from_hass()
 
     @property
@@ -337,7 +337,7 @@ class RedEnergyRestoreEntity(RestoreEntity):
     async def async_update(self) -> None:
         """Update entity and record state."""
         await super().async_update()
-        
+
         # Record state after successful update
         if hasattr(self, '_attr_native_value') and self._attr_native_value is not None:
             self._record_current_state()
@@ -358,13 +358,13 @@ class EntityAvailabilityManager:
         """Monitor entity availability and attempt recovery."""
         for entity_id in entity_ids:
             state = self.hass.states.get(entity_id)
-            
+
             if not state or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 if entity_id not in self._unavailable_entities:
                     _LOGGER.warning("Entity %s became unavailable", entity_id)
                     self._unavailable_entities.add(entity_id)
                     self._recovery_attempts[entity_id] = 0
-                
+
                 # Attempt recovery if under max attempts
                 if self._recovery_attempts.get(entity_id, 0) < self._max_recovery_attempts:
                     await self._attempt_entity_recovery(entity_id)
@@ -379,16 +379,16 @@ class EntityAvailabilityManager:
     async def _attempt_entity_recovery(self, entity_id: str) -> bool:
         """Attempt to recover an unavailable entity."""
         _LOGGER.debug("Attempting recovery for entity %s", entity_id)
-        
+
         # Try state restoration first
         success = await self._state_manager.async_handle_entity_unavailable(
             entity_id, restore_immediately=True
         )
-        
+
         if success:
             _LOGGER.info("Successfully recovered entity %s using state restoration", entity_id)
             return True
-        
+
         # Additional recovery strategies can be added here
         # For now, we'll just log the attempt
         _LOGGER.debug("State restoration recovery failed for %s", entity_id)

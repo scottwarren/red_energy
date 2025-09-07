@@ -19,7 +19,7 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry."""
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator: RedEnergyDataCoordinator = entry_data["coordinator"]
-    
+
     # Basic integration info
     diagnostics = {
         "integration_info": {
@@ -36,7 +36,7 @@ async def async_get_config_entry_diagnostics(
             "data_available": coordinator.data is not None,
         },
     }
-    
+
     # Add coordinator data (sanitized)
     if coordinator.data:
         diagnostics["coordinator_data"] = {
@@ -45,7 +45,7 @@ async def async_get_config_entry_diagnostics(
             "usage_data_count": len(coordinator.data.get("usage_data", {})),
             "last_update": coordinator.data.get("last_update"),
         }
-        
+
         # Add property details (sanitized)
         properties = coordinator.data.get("properties", [])
         diagnostics["properties"] = []
@@ -63,7 +63,7 @@ async def async_get_config_entry_diagnostics(
                     for service in prop.get("services", [])
                 ]
             })
-        
+
         # Add usage data summary
         usage_data = coordinator.data.get("usage_data", {})
         diagnostics["usage_summary"] = {}
@@ -82,7 +82,7 @@ async def async_get_config_entry_diagnostics(
                     "last_updated": service_data.get("last_updated"),
                 }
             diagnostics["usage_summary"][prop_id] = services_summary
-    
+
     # Add API info
     api_info = {
         "api_type": type(coordinator.api).__name__,
@@ -90,7 +90,7 @@ async def async_get_config_entry_diagnostics(
         "token_expires": coordinator.api._token_expires.isoformat() if coordinator.api._token_expires else None,
     }
     diagnostics["api_info"] = api_info
-    
+
     return diagnostics
 
 
@@ -98,18 +98,18 @@ def _sanitize_customer_data(customer_data: Dict[str, Any]) -> Dict[str, Any]:
     """Sanitize customer data for diagnostics."""
     if not customer_data:
         return {}
-    
+
     sanitized = {
         "id_length": len(customer_data.get("id", "")),
         "name_length": len(customer_data.get("name", "")),
         "email_domain": customer_data.get("email", "").split("@")[-1] if "@" in customer_data.get("email", "") else "",
     }
-    
+
     if "phone" in customer_data:
         phone = customer_data["phone"]
         sanitized["phone_length"] = len(phone)
         sanitized["phone_prefix"] = phone[:3] if len(phone) >= 3 else ""
-    
+
     return sanitized
 
 
@@ -119,25 +119,25 @@ async def async_get_device_diagnostics(
     """Return diagnostics for a device entry."""
     # For Red Energy, devices are properties
     # We can provide property-specific diagnostics here
-    
+
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator: RedEnergyDataCoordinator = entry_data["coordinator"]
-    
+
     # Extract property ID from device identifier
     device_id = None
     for identifier in device.identifiers:
         if identifier[0] == DOMAIN:
             device_id = identifier[1].replace(f"{entry.entry_id}_", "")
             break
-    
+
     if not device_id or not coordinator.data:
         return {"error": "Device not found or no data available"}
-    
+
     # Get property-specific data
     property_data = coordinator.get_property_data(device_id)
     if not property_data:
         return {"error": f"No data available for property {device_id}"}
-    
+
     diagnostics = {
         "device_info": {
             "property_id": device_id,
@@ -149,17 +149,17 @@ async def async_get_device_diagnostics(
         },
         "services_data": {},
     }
-    
+
     # Add service-specific data
     for service_type, service_data in property_data.get("services", {}).items():
         usage_info = service_data.get("usage_data", {})
         daily_data = usage_info.get("usage_data", [])
-        
+
         # Calculate some statistics
         if daily_data:
             usage_values = [entry.get("usage", 0) for entry in daily_data]
             cost_values = [entry.get("cost", 0) for entry in daily_data]
-            
+
             diagnostics["services_data"][service_type] = {
                 "consumer_number_length": len(service_data.get("consumer_number", "")),
                 "total_usage": usage_info.get("total_usage"),
@@ -179,5 +179,5 @@ async def async_get_device_diagnostics(
                 },
                 "last_updated": service_data.get("last_updated"),
             }
-    
+
     return diagnostics
