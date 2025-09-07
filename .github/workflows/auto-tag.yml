@@ -1,0 +1,59 @@
+name: Auto Tag on Main Push
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  auto_tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from manifest.json
+        id: version
+        run: |
+          python - << 'PY'
+import json, sys
+from pathlib import Path
+mf = Path('custom_components/red_energy/manifest.json')
+data = json.loads(mf.read_text())
+v = str(data.get('version', '')).strip()
+if not v:
+    print('::error::No version found in manifest.json')
+    sys.exit(1)
+print(f"version={v}")
+print(f"tag=v{v}")
+print(f"::set-output name=version::{v}")
+print(f"::set-output name=tag::v{v}")
+PY
+
+      - name: Create tag if missing
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          echo "Requested tag: $TAG"
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Check if tag exists locally or remotely
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists locally. Skipping."
+            exit 0
+          fi
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "Tag $TAG already exists on origin. Skipping."
+            exit 0
+          fi
+          # Create and push annotated tag
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+
