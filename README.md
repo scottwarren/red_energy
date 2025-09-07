@@ -8,6 +8,18 @@
 
 A comprehensive Home Assistant custom integration for Red Energy (Australian energy provider) that provides real-time energy monitoring, advanced analytics, and automation capabilities.
 
+## Fork notice
+
+This repository is a maintained fork of `craibo/ha-red-energy-au`. It preserves the original integration goals while adding authentication tooling, test improvements, and broader Python/Home Assistant compatibility. See Acknowledgments for the original project.
+
+## Recent changes
+
+- Added `.env`-driven auth test at `scripts/auth_test.py` for real-credential verification
+- Fixed config flow async behavior by safely awaiting `async_show_form` when mocked
+- Resolved test instability and deprecation/runtime warnings in the suite
+- Ensured compatibility and test coverage on Python 3.13
+- Updated requirements to support Home Assistant core 2025.9.1 and newer
+
 ## Features
 
 ### 🏠 **Core Energy Monitoring**
@@ -218,14 +230,14 @@ The integration provides comprehensive diagnostics:
 
 ## Development Status
 
-✅ **Stage 1**: Foundation & Core Structure  
-✅ **Stage 2**: Authentication & Configuration Flow  
-✅ **Stage 3**: Core API Integration  
-✅ **Stage 4**: Advanced Features & Enhancements  
-✅ **Stage 5**: Enhanced Device Management & Performance Optimizations  
+✅ **Stage 1**: Foundation & Core Structure
+✅ **Stage 2**: Authentication & Configuration Flow
+✅ **Stage 3**: Core API Integration
+✅ **Stage 4**: Advanced Features & Enhancements
+✅ **Stage 5**: Enhanced Device Management & Performance Optimizations
 
-**Current Status**: Production Ready  
-**Test Coverage**: 73+ comprehensive tests  
+**Current Status**: Production Ready
+**Test Coverage**: 73+ comprehensive tests
 **Compatibility**: Home Assistant 2024.1+
 
 ## Contributing
