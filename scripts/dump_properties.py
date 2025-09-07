@@ -38,9 +38,12 @@ async def main() -> int:
             print("Auth failed")
             return 1
 
-        print("Fetching properties...")
+        print("Fetching properties (raw)...")
         raw = await api.get_properties()
-        props = validate_properties_data(raw, client_id=client_id)
+        print(raw)
+
+        print("Validating/normalizing properties…")
+        props = validate_properties_data(list(raw or []), client_id=client_id)
 
         print(f"Properties (normalized): {len(props)}")
         for i, p in enumerate(props, 1):

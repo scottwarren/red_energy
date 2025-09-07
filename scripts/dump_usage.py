@@ -41,7 +41,9 @@ async def main() -> int:
             return 1
 
         raw_props = await api.get_properties()
-        props = validate_properties_data(raw_props, client_id=client_id)
+        print("Raw properties:")
+        print(raw_props)
+        props = validate_properties_data(list(raw_props or []), client_id=client_id)
         if not props:
             print("No properties available after validation")
             return 3
@@ -65,10 +67,13 @@ async def main() -> int:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         raw_usage = await api.get_usage_data(consumer_number, start_date, end_date)
-        usage = validate_usage_data(raw_usage)
+        print("Raw usage:")
+        print(raw_usage)
+        usage = validate_usage_data(dict(raw_usage))
         print({
             "property_id": prop.get("id"),
             "service_type": service_type,
+            "consumer_number": consumer_number,
             "from": usage.get("from_date"),
             "to": usage.get("to_date"),
             "total_usage": usage.get("total_usage"),
