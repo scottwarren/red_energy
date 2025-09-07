@@ -48,4 +48,4 @@ jobs:
       run: |
         pip install mypy
         mypy custom_components/red_energy --ignore-missing-imports
-      continue-on-error: true
+      continue-on-error: false
