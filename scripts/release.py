@@ -51,6 +51,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--remote", default=os.getenv("GIT_REMOTE", "origin"))
     parser.add_argument("--branch", default=os.getenv("RELEASE_BRANCH", "main"))
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--notes", help="Release notes text")
+    parser.add_argument("--notes-file", help="Path to a file with release notes")
     return parser.parse_args()
 
 
@@ -123,6 +125,31 @@ def main() -> int:
     run(["git", "tag", "-a", tag, "-m", f"Release {tag}"], dry_run=args.dry_run)
     run(["git", "push", args.remote, current_branch], dry_run=args.dry_run)
     run(["git", "push", args.remote, tag], dry_run=args.dry_run)
+
+    # Create GitHub Release if gh CLI available
+    notes: str | None = None
+    if args.notes_file:
+        nf = Path(args.notes_file)
+        if nf.exists():
+            notes = nf.read_text()
+        else:
+            print(f"Warning: notes file not found: {nf}")
+    elif args.notes:
+        notes = args.notes
+    else:
+        notes = f"Automated release {tag}.\n\n- See commit history for details."
+
+    try:
+        # Check gh availability
+        subprocess.check_call(["gh", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        gh_cmd = [
+            "gh", "release", "create", tag,
+            "--title", f"Release {tag}",
+            "--notes", notes or "",
+        ]
+        run(gh_cmd, dry_run=args.dry_run)
+    except Exception:
+        print("gh CLI not available or failed; skipping GitHub Release creation. You can create it manually.")
 
     print(f"Release complete: {tag}")
     return 0
