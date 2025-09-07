@@ -46,11 +46,11 @@ MOCK_PROPERTIES = [
 async def test_form():
     """Test we get the form."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     result = await flow.async_step_user()
     assert result["type"] == "form"
     assert result["errors"] == {}
@@ -60,11 +60,11 @@ async def test_form():
 async def test_form_auth_error():
     """Test we handle auth errors."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     with patch(
         "custom_components.red_energy.config_flow.validate_input",
         side_effect=InvalidAuth,
@@ -79,11 +79,11 @@ async def test_form_auth_error():
 async def test_form_cannot_connect():
     """Test we handle cannot connect error."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     with patch(
         "custom_components.red_energy.config_flow.validate_input",
         side_effect=CannotConnect,
@@ -96,13 +96,13 @@ async def test_form_cannot_connect():
 
 @pytest.mark.asyncio
 async def test_form_no_accounts():
-    """Test we handle no accounts error.""" 
+    """Test we handle no accounts error."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     with patch(
         "custom_components.red_energy.config_flow.validate_input",
         side_effect=NoAccounts,
@@ -117,37 +117,37 @@ async def test_form_no_accounts():
 async def test_successful_single_account_flow():
     """Test successful config flow with single account."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     # Mock async_set_unique_id and _abort_if_unique_id_configured
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = AsyncMock()
     flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
-    
+
     mock_validation_result = {
         "customer_data": MOCK_CUSTOMER_DATA,
         "accounts": [MOCK_PROPERTIES[0]],  # Single account
         "title": "Test User"
     }
-    
+
     with patch(
         "custom_components.red_energy.config_flow.validate_input",
         return_value=mock_validation_result,
     ):
         # Step 1: User input
         result = await flow.async_step_user(MOCK_USER_INPUT)
-        
+
         # Should go directly to service selection for single account
         assert result["type"] == "form"
         assert result["step_id"] == "service_select"
-        
+
         # Step 2: Service selection
         service_input = {"services": ["electricity"]}
         result = await flow.async_step_service_select(service_input)
-        
+
         # Should create entry
         flow.async_create_entry.assert_called_once()
 
@@ -156,11 +156,11 @@ async def test_successful_single_account_flow():
 async def test_successful_multi_account_flow():
     """Test successful config flow with multiple accounts."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     # Mock methods
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = AsyncMock()
@@ -169,20 +169,20 @@ async def test_successful_multi_account_flow():
         "type": "form",
         "step_id": "account_select"
     })
-    
+
     mock_validation_result = {
         "customer_data": MOCK_CUSTOMER_DATA,
         "accounts": MOCK_PROPERTIES,  # Multiple accounts
         "title": "Test User"
     }
-    
+
     with patch(
         "custom_components.red_energy.config_flow.validate_input",
         return_value=mock_validation_result,
     ):
         # Step 1: User input
         result = await flow.async_step_user(MOCK_USER_INPUT)
-        
+
         # Should go to account selection for multiple accounts
         flow.async_show_form.assert_called_once()
         called_args = flow.async_show_form.call_args
@@ -193,11 +193,11 @@ def test_validate_input_structure():
     """Test that validate_input returns expected structure."""
     # This is a unit test for the function structure
     from custom_components.red_energy.config_flow import STEP_USER_DATA_SCHEMA
-    
+
     # Test that schema accepts valid data
     validated = STEP_USER_DATA_SCHEMA(MOCK_USER_INPUT)
     assert validated[CONF_USERNAME] == "test@example.com"
-    assert validated[CONF_PASSWORD] == "testpass" 
+    assert validated[CONF_PASSWORD] == "testpass"
     assert validated[CONF_CLIENT_ID] == "test-client-id-123"
 
 
@@ -205,13 +205,13 @@ def test_validate_input_structure():
 async def test_service_select_schema_validation():
     """Test that service selection schema validates correctly with cv.ensure_list."""
     hass = AsyncMock(spec=HomeAssistant)
-    
+
     from custom_components.red_energy.config_flow import ConfigFlow
     from custom_components.red_energy.const import SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS
-    
+
     flow = ConfigFlow()
     flow.hass = hass
-    
+
     # Set up flow state to reach service selection
     flow._customer_data = MOCK_CUSTOMER_DATA
     flow._accounts = MOCK_PROPERTIES
@@ -219,16 +219,16 @@ async def test_service_select_schema_validation():
     flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
     flow.async_set_unique_id = AsyncMock()
     flow._abort_if_unique_id_configured = AsyncMock()
-    
+
     # Test valid single service selection
     result = await flow.async_step_service_select({"services": [SERVICE_TYPE_ELECTRICITY]})
     assert result["type"] == "create_entry"
-    
+
     # Test valid multiple service selection
     flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
     result = await flow.async_step_service_select({"services": [SERVICE_TYPE_ELECTRICITY, SERVICE_TYPE_GAS]})
     assert result["type"] == "create_entry"
-    
+
     # Test that schema accepts list inputs (validates cv.ensure_list works)
     flow.async_create_entry = AsyncMock(return_value={"type": "create_entry"})
     result = await flow.async_step_service_select({"services": SERVICE_TYPE_ELECTRICITY})  # Single string, should be converted to list
